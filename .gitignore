@@ -4,3 +4,5 @@ target/
 tags
 compile_commands.json
 build/
+.cache/
+.ccls

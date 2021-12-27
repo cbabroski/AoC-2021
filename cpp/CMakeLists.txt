@@ -6,3 +6,4 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(day7 day7/day7.cxx)
 add_executable(day8 day8/day8.cxx)
+add_executable(day9 day9/day9.cxx)

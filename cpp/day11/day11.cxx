@@ -4,6 +4,12 @@
 #define NUM_GRID_ROWS	(10)
 #define NUM_GRID_COLS	(10)
 
+static const int NEIGHBOR_INDEXES[8][2] = {
+	{-1, -1}, {-1, 0}, {-1, 1},
+	{ 0, -1},          { 0, 1},
+	{ 1, -1}, { 1, 0}, { 1, 1}
+};
+
 struct Position {
 	int row;
 	int col;
@@ -27,7 +33,7 @@ private:
 	int m_num_flashes = 0;
 	bool m_all_flashed = false;
 	Octopus m_grid[NUM_GRID_ROWS][NUM_GRID_COLS];
-	int get_neighbors(Octopus octopus, std::vector<Octopus>& neighbors);
+	bool is_valid_pos(int row, int col);
 	void flash_octopuses(void);
 };
 
@@ -48,77 +54,9 @@ void OctopusGrid::add_octopus(Octopus octopus)
 	m_grid[octopus.pos.row][octopus.pos.col] = octopus;
 }
 
-// FIXME/Note: for now get_neighbors returns copies of neighboring octopuses, so can't use them
-// directly as references to m_grid and instead need to use their positions to update the real
-// ones.
-int OctopusGrid::get_neighbors(Octopus octopus, std::vector<Octopus>& neighbors)
+bool OctopusGrid::is_valid_pos(int row, int col)
 {
-	int row = 0;
-	int col = 0;
-
-	if (octopus.pos.row < 0 || octopus.pos.col < 0 ||
-	    octopus.pos.row >= NUM_GRID_ROWS || octopus.pos.col >= NUM_GRID_COLS) {
-		printf("%s: invalid input params.\n", __func__);
-		return -1;
-	}
-
-	// Up
-	row = octopus.pos.row - 1;
-	col = octopus.pos.col;
-	if (row >= 0 && col >= 0) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Left
-	row = octopus.pos.row;
-	col = octopus.pos.col - 1;
-	if (row >= 0 && col >= 0) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Right
-	row = octopus.pos.row;
-	col = octopus.pos.col + 1;
-	if (row < NUM_GRID_ROWS && col < NUM_GRID_COLS) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Down
-	row = octopus.pos.row + 1;
-	col = octopus.pos.col;
-	if (row < NUM_GRID_ROWS && col < NUM_GRID_COLS) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Diagonal left up
-	row = octopus.pos.row - 1;
-	col = octopus.pos.col - 1;
-	if (row >= 0 && col >= 0) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Diagonal left down
-	row = octopus.pos.row + 1;
-	col = octopus.pos.col - 1;
-	if (row < NUM_GRID_ROWS && col >= 0) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Diagonal right up
-	row = octopus.pos.row - 1;
-	col = octopus.pos.col + 1;
-	if (row >= 0 && col < NUM_GRID_COLS) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	// Diagonal right down
-	row = octopus.pos.row + 1;
-	col = octopus.pos.col + 1;
-	if (row < NUM_GRID_ROWS && col < NUM_GRID_COLS) {
-		neighbors.push_back(m_grid[row][col]);
-	}
-
-	return 0;
+	return (row >= 0 && row < NUM_GRID_ROWS && col >= 0 && col < NUM_GRID_COLS);
 }
 
 void OctopusGrid::flash_octopuses(void)
@@ -138,10 +76,12 @@ void OctopusGrid::flash_octopuses(void)
 					flashed = true;
 
 					// Increase energy level of neighbors
-					std::vector<Octopus> neighbors;
-					get_neighbors(octopus, neighbors);
-					for (Octopus n: neighbors) {
-						m_grid[n.pos.row][n.pos.col].energy_level++;
+					for (auto n: NEIGHBOR_INDEXES) {
+						int n_row = row + n[0];
+						int n_col = col + n[1];
+						if (is_valid_pos(n_row, n_col)) {
+							m_grid[n_row][n_col].energy_level++;
+						}
 					}
 				}
 			}
@@ -183,7 +123,6 @@ void OctopusGrid::step(void)
 		}
 	}
 }
-
 
 int main()
 {

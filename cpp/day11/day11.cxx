@@ -34,7 +34,7 @@ private:
 	bool m_all_flashed = false;
 	Octopus m_grid[NUM_GRID_ROWS][NUM_GRID_COLS];
 	bool is_valid_pos(int row, int col);
-	void flash_octopuses(void);
+	void try_flash(Octopus& octopus);
 };
 
 void OctopusGrid::display(void)
@@ -59,42 +59,21 @@ bool OctopusGrid::is_valid_pos(int row, int col)
 	return (row >= 0 && row < NUM_GRID_ROWS && col >= 0 && col < NUM_GRID_COLS);
 }
 
-void OctopusGrid::flash_octopuses(void)
+void OctopusGrid::try_flash(Octopus& octopus)
 {
-	int cur_num_flashes = m_num_flashes;
-	bool flashing = true;
-	while (flashing) {
-		// Go through all octopuses and see which ones flashed
-		bool flashed = false;
-		for (int row = 0; row < NUM_GRID_ROWS; row++) {
-			for (int col = 0; col < NUM_GRID_COLS; col++) {
-				Octopus& octopus = m_grid[row][col];
-				if (octopus.energy_level > 9 && !octopus.flashed) {
-					// Flash octopus
-					octopus.flashed = true;
-					m_num_flashes++;
-					flashed = true;
+	if (octopus.energy_level > 9 && !octopus.flashed) {
+		octopus.flashed = true;
+		m_num_flashes++;
 
-					// Increase energy level of neighbors
-					for (auto n: NEIGHBOR_INDEXES) {
-						int n_row = row + n[0];
-						int n_col = col + n[1];
-						if (is_valid_pos(n_row, n_col)) {
-							m_grid[n_row][n_col].energy_level++;
-						}
-					}
-				}
+		for (auto n: NEIGHBOR_INDEXES) {
+			int n_row = octopus.pos.row + n[0];
+			int n_col = octopus.pos.col + n[1];
+			if (is_valid_pos(n_row, n_col)) {
+				Octopus& neighbor = m_grid[n_row][n_col];
+				neighbor.energy_level++;
+				try_flash(neighbor);
 			}
 		}
-
-		// Continue until no more flash
-		if (!flashed) {
-			flashing = false;
-		}
-	}
-
-	if (m_num_flashes - cur_num_flashes == NUM_GRID_ROWS * NUM_GRID_COLS) {
-		m_all_flashed = true;
 	}
 }
 
@@ -111,7 +90,17 @@ void OctopusGrid::step(void)
 	}
 
 	// Handle octopus flashes
-	flash_octopuses();
+	int prev_num_flashes = m_num_flashes;
+	for (int row = 0; row < NUM_GRID_ROWS; row++) {
+		for (int col = 0; col < NUM_GRID_COLS; col++) {
+			try_flash(m_grid[row][col]);
+		}
+	}
+
+	// Check if all octopuses flashed at the same time
+	if (m_num_flashes - prev_num_flashes == NUM_GRID_ROWS * NUM_GRID_COLS) {
+		m_all_flashed = true;
+	}
 
 	// Reset flashed octopuses back to 0
 	for (int row = 0; row < NUM_GRID_ROWS; row++) {

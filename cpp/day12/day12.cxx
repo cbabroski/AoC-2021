@@ -17,12 +17,8 @@ public:
 	void display_caves_and_neighbors(void);
 
 	// Counts the total number of paths from src to dst given that small caves
-	// can only be visited once (-1 for error)
-	int count_paths(const std::string& src, const std::string& dst);
-
-	// Counts the total number of paths from src to dst given that one small cave
-	// can be visited twice and others can only be visited once (-1 for error)
-	int count_paths_with_one_small_retry(const std::string& src, const std::string& dst);
+	// can only be visited once (-1 for error).
+	int count_paths(const std::string& src, const std::string &dst, bool allow_small_retry);
 
 private:
 	// Cave connections parsed from input
@@ -40,6 +36,11 @@ private:
 
 	// Prints all neighbors of a given cave
 	void display_neighbors(const std::string& cave);
+
+	// Helper function for recursive search
+	int count(int& path_count, const std::string& src, const std::string &dst,
+		  bool allow_small_retry,
+		  std::unordered_map<std::string, int>& num_times_cave_visited);
 };
 
 bool CaveGraph::is_cave_small(const std::string& cave)
@@ -108,97 +109,61 @@ void CaveGraph::display_connections(void)
 	printf("\n");
 }
 
-// TODO split common functionality out
-int CaveGraph::count_paths(const std::string& src, const std::string &dst)
+int CaveGraph::count(int& path_count, const std::string& src, const std::string &dst,
+		     bool allow_small_retry,
+		     std::unordered_map<std::string, int>& num_times_cave_visited)
 {
-	static int path_count = 0;
-	static std::vector<std::string> visited;
-
-	// Have we reached the destination?
-	visited.push_back(src);
+	// Stop and backtrack when the destination has been reached
+	num_times_cave_visited[src]++;
 	if (src == dst) {
 		path_count++;
-	} else {
-		// If not search all neighbors recursively
-		for (const std::string& n: m_neighbors[src]) {
-			if (is_cave_small(n)) {
-				// Has this small cave already been visited?
-				auto found = std::find(visited.begin(), visited.end(), n);
-				if (found != visited.end()) {
-					continue;
+		goto backtrack;
+	}
+
+	// Determine whether or not this cave can continue to be searched
+	if (is_cave_small(src) && num_times_cave_visited[src] > 1) {
+		if (!allow_small_retry) {
+			goto backtrack;
+		}
+
+		if (src == "start" || src == "end") {
+			goto backtrack;
+		}
+
+		if (num_times_cave_visited[src] > 2) {
+			goto backtrack;
+		}
+
+		bool another_small_cave_was_already_visited_twice = false;
+		for (auto it: num_times_cave_visited) {
+			if (is_cave_small(it.first) && it.second > 1) {
+				if (it.first != "start" && it.first != "end" && it.first != src) {
+					another_small_cave_was_already_visited_twice = true;
+					break;
 				}
 			}
-			count_paths(n, dst);
+		}
+
+		if (another_small_cave_was_already_visited_twice) {
+			goto backtrack;
 		}
 	}
 
-	// Backtrack and look for other paths. Reverse the vector to
-	// remove the last (first appearing) occurrence.
-	std::reverse(visited.begin(), visited.end());
-	auto last_visited_src = std::find(visited.begin(), visited.end(), src);
-	visited.erase(last_visited_src);
-	std::reverse(visited.begin(), visited.end());
+	// Recursively search through all neighbor paths
+	for (const std::string& n: m_neighbors[src]) {
+		count(path_count, n, dst, allow_small_retry, num_times_cave_visited);
+	}
+
+backtrack:
+	num_times_cave_visited[src]--;
 	return path_count;
 }
 
-int CaveGraph::count_paths_with_one_small_retry(const std::string& src, const std::string &dst)
+int CaveGraph::count_paths(const std::string& src, const std::string &dst, bool allow_small_retry)
 {
-	static int path_count = 0;
-	static std::vector<std::string> visited;
-	static std::unordered_map<std::string, int> num_times_cave_visited = {};
-
-	visited.push_back(src);
-	num_times_cave_visited[src]++;
-
-	// Have we reached the destination?
-	if (src == dst) {
-		path_count++;
-#ifdef PRINT_PATHS
-		for (auto v: visited) {
-			printf("%s,", v.c_str());
-		}
-		printf("\n");
-#endif
-	} else {
-		int num_small_second_visits = 0;
-		for (auto it: num_times_cave_visited) {
-			/* printf("%s visited %d times\n", it.first.c_str(), it.second); */
-			if (is_cave_small(it.first) && it.second > 1) {
-				if (it.first != "start" && it.first != "end") {
-					num_small_second_visits++;
-				}
-			}
-		}
-
-		// If not search all neighbors recursively
-		for (const std::string& n: m_neighbors[src]) {
-			if (is_cave_small(n)) {
-				// Has this small cave already been visited?
-				auto found = std::find(visited.begin(), visited.end(), n);
-				printf("num_times_cave_visited[%s]: %d\n", n.c_str(),
-					num_times_cave_visited[n]);
-				/* if (num_times_cave_visited[n] > 1) { */
-				if (found != visited.end()) {
-					if (n == "start" || n == "end") {
-						continue;
-					}
-
-					if (num_small_second_visits > 0) {
-						continue;
-					}
-				}
-			}
-			count_paths_with_one_small_retry(n, dst);
-		}
-	}
-
-	// Backtrack and look for other paths. Reverse the vector to
-	// remove the last (first appearing) occurrence.
-	std::reverse(visited.begin(), visited.end());
-	auto last_visited_src = std::find(visited.begin(), visited.end(), src);
-	visited.erase(last_visited_src);
-	std::reverse(visited.begin(), visited.end());
-	num_times_cave_visited[src]--;
+	int path_count = 0;
+	std::unordered_map<std::string, int> num_times_cave_visited = {};
+	count(path_count, src, dst, allow_small_retry, num_times_cave_visited);
 	return path_count;
 }
 
@@ -206,14 +171,15 @@ int main()
 {
 	CaveGraph cave;
 	std::string connection;
-	std::ifstream input("../day12/sample-input1.txt");
+	std::ifstream input("../day12/input.txt");
 	while (input >> connection) {
 		cave.add_connection(connection);
 	}
 
 	cave.display_connections();
 	cave.display_caves_and_neighbors();
-	printf("Part 1: %d\n", cave.count_paths("start", "end"));
-	printf("Part 2: %d\n", cave.count_paths_with_one_small_retry("start", "end"));
+	printf("Part 1: %d\n", cave.count_paths("start", "end", false));
+	printf("Part 2: %d\n", cave.count_paths("start", "end", true));
+
 	return 0;
 }

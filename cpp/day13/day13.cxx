@@ -177,13 +177,13 @@ void TransparentPaper::parse_input(std::string filename)
 	}
 
 	int x, y;
-	while (fscanf(fp, "%d,%d", &x, &y) > 0) {
+	while (fscanf(fp, "%d,%d\n", &x, &y) > 0) {
 		add_dot(x, y);
 	}
 
 	char axis;
 	int pos;
-	while (fscanf(fp, "fold along %c=%d", &axis, &pos) > 0) {
+	while (fscanf(fp, "fold along %c=%d\n", &axis, &pos) > 0) {
 		if (axis == 'x') {
 			x = pos;
 			y = 0;
@@ -195,7 +195,6 @@ void TransparentPaper::parse_input(std::string filename)
 			continue;
 		}
 
-		printf("add fold instruction: %c=%d\n", axis, pos);
 		add_fold_instruction(x, y);
 	}
 

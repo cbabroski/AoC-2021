@@ -18,6 +18,7 @@ public:
 
 	// Prints out the current paper/grid with dots
 	void display(void);
+
 private:
 	int m_max_x_value, m_max_y_value = 0;
 	bool m_grid_constructed = false;
@@ -54,6 +55,39 @@ void TransparentPaper::add_dot(int x, int y)
 void TransparentPaper::add_fold_instruction(int x, int y)
 {
 	m_fold_instructions.push(std::make_pair(x, y));
+}
+
+void TransparentPaper::parse_input(std::string filename)
+{
+	FILE *fp = fopen(filename.c_str(), "r");
+	if (!fp) {
+		printf("Failed to open %s.\n", filename.c_str());
+		return;
+	}
+
+	int x, y;
+	while (fscanf(fp, "%d,%d\n", &x, &y) > 0) {
+		add_dot(x, y);
+	}
+
+	char axis;
+	int pos;
+	while (fscanf(fp, "fold along %c=%d\n", &axis, &pos) > 0) {
+		if (axis == 'x') {
+			x = pos;
+			y = 0;
+		} else if (axis == 'y') {
+			x = 0;
+			y = pos;
+		} else {
+			printf("no axis '%c'\n", axis);
+			continue;
+		}
+
+		add_fold_instruction(x, y);
+	}
+
+	fclose(fp);
 }
 
 void TransparentPaper::resize(void)
@@ -113,7 +147,7 @@ void TransparentPaper::display(void)
 			if (m_grid[row][col] == 1) {
 				printf("#");
 			} else {
-				printf(".");
+				printf(" ");
 			}
 		}
 		printf("\n");
@@ -174,45 +208,11 @@ int TransparentPaper::fold(void)
 	return m_fold_instructions.size();
 }
 
-void TransparentPaper::parse_input(std::string filename)
-{
-	FILE *fp = fopen(filename.c_str(), "r");
-	if (!fp) {
-		printf("Failed to open %s.\n", filename.c_str());
-		return;
-	}
-
-	int x, y;
-	while (fscanf(fp, "%d,%d\n", &x, &y) > 0) {
-		add_dot(x, y);
-	}
-
-	char axis;
-	int pos;
-	while (fscanf(fp, "fold along %c=%d\n", &axis, &pos) > 0) {
-		if (axis == 'x') {
-			x = pos;
-			y = 0;
-		} else if (axis == 'y') {
-			x = 0;
-			y = pos;
-		} else {
-			printf("no axis '%c'\n", axis);
-			continue;
-		}
-
-		add_fold_instruction(x, y);
-	}
-
-	fclose(fp);
-}
-
 int main()
 {
 	TransparentPaper paper;
 	paper.parse_input("../day13/input.txt");
 
-	std::string code;
 	int num_dots_after_first_fold = 0;
 	int num_remaining_folds = 0;
 	do {
@@ -222,9 +222,8 @@ int main()
 		}
 	} while (num_remaining_folds > 0);
 
-	printf("Raw code:\n");
-	paper.display();
 	printf("part 1: %d\n", num_dots_after_first_fold);
-	printf("Part 2: %s\n", code.c_str());
+	printf("Part 2:\n");
+	paper.display();
 	return 0;
 }

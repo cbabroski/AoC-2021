@@ -35,6 +35,7 @@ private:
 	// Helpers to place dots on the grid and resize if necessary
 	void construct_grid(void);
 	void resize_grid(void);
+	void resize(void);
 };
 
 void TransparentPaper::add_dot(int x, int y)
@@ -55,12 +56,42 @@ void TransparentPaper::add_fold_instruction(int x, int y)
 	m_fold_instructions.push(std::make_pair(x, y));
 }
 
+void TransparentPaper::resize(void)
+{
+	m_grid.resize(m_max_y_value + 1);
+	for (int i = 0; i < m_grid.size(); i++) {
+		m_grid[i].resize(m_max_x_value + 1);
+	}
+}
+
+void TransparentPaper::resize_grid(void)
+{
+	if (!m_grid_constructed) {
+		construct_grid();
+	}
+
+	int max_x, max_y = 0;
+	for (int row_y = 0; row_y < m_grid.size(); row_y++) {
+		for (int col_x = 0; col_x < m_grid[0].size(); col_x++) {
+			if (m_grid[row_y][col_x] == 1) {
+				if (row_y > max_y) {
+					max_y = row_y;
+				}
+				if (col_x > max_x) {
+					max_x = col_x;
+				}
+			}
+		}
+	}
+
+	m_max_y_value = max_y;
+	m_max_x_value = max_x;
+	resize();
+}
+
 void TransparentPaper::construct_grid(void)
 {
-	// num rows = max y + 1
-	// num cols = max x + 1
-	m_grid.resize(m_max_y_value + 1, std::vector<int>(m_max_x_value + 1));
-
+	resize();
 	int x, y = 0;
 	for (auto p: m_dots) {
 		x = p.first;
@@ -101,31 +132,6 @@ int TransparentPaper::get_num_visible_dots(void)
 		}
 	}
 	return num_visible_dots;
-}
-
-void TransparentPaper::resize_grid(void)
-{
-	if (!m_grid_constructed) {
-		construct_grid();
-	}
-
-	int max_x, max_y = 0;
-	for (int row_y = 0; row_y < m_grid.size(); row_y++) {
-		for (int col_x = 0; col_x < m_grid[0].size(); col_x++) {
-			if (m_grid[row_y][col_x] == 1) {
-				if (row_y > max_y) {
-					max_y = row_y;
-				}
-				if (col_x > max_x) {
-					max_x = col_x;
-				}
-			}
-		}
-	}
-
-	m_max_y_value = max_y;
-	m_max_x_value = max_x;
-	m_grid.resize(m_max_y_value + 1, std::vector<int>(m_max_x_value + 1));
 }
 
 int TransparentPaper::fold(void)
@@ -204,19 +210,20 @@ void TransparentPaper::parse_input(std::string filename)
 int main()
 {
 	TransparentPaper paper;
-	paper.parse_input("../day13/sample-input.txt");
+	paper.parse_input("../day13/input.txt");
 
 	std::string code;
 	int num_dots_after_first_fold = 0;
 	int num_remaining_folds = 0;
 	do {
 		num_remaining_folds = paper.fold();
-		paper.display();
 		if (!num_dots_after_first_fold) {
 			num_dots_after_first_fold = paper.get_num_visible_dots();
 		}
 	} while (num_remaining_folds > 0);
 
+	printf("Raw code:\n");
+	paper.display();
 	printf("part 1: %d\n", num_dots_after_first_fold);
 	printf("Part 2: %s\n", code.c_str());
 	return 0;

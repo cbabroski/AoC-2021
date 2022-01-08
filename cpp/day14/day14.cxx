@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_map>
 
-static std::pair<std::string, std::string> decode_insertion_rule(const std::string& rule)
+std::pair<std::string, std::string> decode_insertion_rule(const std::string& rule)
 {
 	std::string delimiter = " -> ";
 	auto delimiter_pos = rule.find(delimiter);
@@ -20,7 +20,8 @@ static std::pair<std::string, std::string> decode_insertion_rule(const std::stri
 	return std::make_pair(insertion_point, insertion_char);
 }
 
-// Too slow for > 15 steps
+
+///// BRUTE FORCE /////
 std::unordered_map<char, long> brute_force_count_elements(
 		int num_steps, const std::string& polymer_template,
 		const std::vector<std::string>& insertion_rules)
@@ -60,6 +61,7 @@ std::unordered_map<char, long> brute_force_count_elements(
 	return element_count;
 }
 
+///// RECURSIVE /////
 void add_elements_for_pair(int num_steps, const std::string& element_pair,
 			   const std::unordered_map<std::string, char>& insertion_rule_map,
 			   std::unordered_map<char, long>& element_count)
@@ -68,9 +70,6 @@ void add_elements_for_pair(int num_steps, const std::string& element_pair,
 		return;
 	}
 
-	// TODO if element_pair not in map, return?
-
-	/* char insertion_char = insertion_rule_map[element_pair]; */
 	char insertion_char = insertion_rule_map.at(element_pair);
 	element_count[insertion_char]++;
 	num_steps--;
@@ -86,7 +85,7 @@ void add_elements_for_pair(int num_steps, const std::string& element_pair,
 	add_elements_for_pair(num_steps, next_pair, insertion_rule_map, element_count);
 }
 
-std::unordered_map<char, long> optimized_count_elements(
+std::unordered_map<char, long> recursive_count_elements(
 		int num_steps, const std::string& polymer_template,
 		const std::vector<std::string>& insertion_rules)
 {
@@ -110,7 +109,69 @@ std::unordered_map<char, long> optimized_count_elements(
 		add_elements_for_pair(num_steps, two_chars, insertion_rule_map, element_count);
 	}
 
-	printf("finished counting elements\n");
+	return element_count;
+}
+
+///// OPTIMIZED /////
+std::unordered_map<char, long> optimized_count_elements(
+		int num_steps, const std::string& polymer_template,
+		const std::vector<std::string>& insertion_rules)
+{
+	// Create map of insertion rules for quicker access
+	std::unordered_map<std::string, char> insertion_rule_map;
+	for (std::string rule: insertion_rules) {
+		auto p = decode_insertion_rule(rule);
+		std::string insertion_match = p.first;
+		char insertion_char = p.second[0];
+		insertion_rule_map[insertion_match] = insertion_char;
+	}
+
+	// Start map of pair and element counts based on template.
+	// Keep a map of pair counts rather than needing to update a string.
+	std::unordered_map<std::string, long> pair_counts;
+	std::unordered_map<char, long> element_count;
+	element_count[polymer_template[0]]++;
+	for (int c = 0; c < polymer_template.size() - 1; c++) {
+		std::string el_pair = polymer_template.substr(c, 2);
+		pair_counts[el_pair]++;
+		element_count[el_pair[1]]++;
+	}
+
+	// Continue to update pair and element counts based on new pairs that are created
+	// as new elements are inserted.
+	std::unordered_map<std::string, long> pair_count_copy;
+	for (int i = 0; i < num_steps; i++) {
+		pair_count_copy = pair_counts;
+		for (auto p: pair_count_copy) {
+			if (p.second <= 0) {
+				continue;
+			}
+
+			std::string el_pair = p.first;
+			long count = p.second;
+			char insertion = insertion_rule_map[el_pair];
+
+			// Count new element
+			element_count[insertion] += count;
+
+			// Two new pairs are created after insertion
+			std::string first_new_pair = "";
+			first_new_pair.push_back(el_pair[0]);
+			first_new_pair.push_back(insertion);
+			std::string second_new_pair = "";
+			second_new_pair.push_back(insertion);
+			second_new_pair.push_back(el_pair[1]);
+
+			// Since an element is being inserted and creates two new pairs,
+			// need to reset/subtract count from the old pair.
+			pair_counts[el_pair] -= count;
+
+			// Then add the count of the two new pairs created
+			pair_counts[first_new_pair] += count;
+			pair_counts[second_new_pair] += count;
+		}
+	}
+
 	return element_count;
 }
 
@@ -138,7 +199,7 @@ int main()
 	std::string polymer_template;
 	std::vector<std::string> insertion_rules;
 
-	std::ifstream input("../day14/sample-input.txt");
+	std::ifstream input("../day14/input.txt");
 	for (std::string line; std::getline(input, line); ) {
 		if (line == "") {
 			continue;
@@ -154,16 +215,14 @@ int main()
 
 	std::unordered_map<char, long> element_count_part1 = brute_force_count_elements(
 		10, polymer_template, insertion_rules);
-	printf("Part 1: %ld\n", get_solution(element_count_part1, polymer_template));
+	printf("Part 1 brute force: %ld\n", get_solution(element_count_part1, polymer_template));
 
-	// TODO remove when fast
-	std::unordered_map<char, long> element_count_part2_test = optimized_count_elements(
+	std::unordered_map<char, long> element_count_part2_test = recursive_count_elements(
 		10, polymer_template, insertion_rules);
-	printf("Part 2 for 10 (TEST): %ld\n", get_solution(element_count_part2_test,
-								polymer_template));
+	printf("Part 1 recursive: %ld\n", get_solution(element_count_part2_test, polymer_template));
 
 	std::unordered_map<char, long> element_count_part2 = optimized_count_elements(
 		40, polymer_template, insertion_rules);
-	printf("Part 2: %ld\n", get_solution(element_count_part2, polymer_template));
+	printf("Part 2 optimized: %ld\n", get_solution(element_count_part2, polymer_template));
 	return 0;
 }

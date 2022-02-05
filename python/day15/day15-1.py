@@ -60,6 +60,9 @@ while True:
         alt = risks[(cr, cc)] + actual_risks[nr][nc]
         if alt < risks[(nr, nc)]:
             risks[(nr, nc)] = alt
+
+            # Python's heapq doesn't allow for decreasing a priority, so just add
+            # new risk on to the priority queue and keep track of visited nodes
             heapq.heappush(pq, Node(risk=alt, pos=(nr, nc)))
 
     visited.add(cur.pos)
